@@ -374,6 +374,7 @@ from data_fetcher import (
     get_options_gfex,
     get_futures_hold_position,
     generate_smart_analysis,
+    generate_fundamental_analysis,
 )
 from analyzer import analyze_market
 
@@ -855,52 +856,104 @@ with tab_smart:
                             st.metric("🟢 空头得分", f"{bear:.1f}")
                             st.progress(min(bear / 8, 1.0))
 
-                        # ── 逐个信号解读 ──
+                        # ── 技术面信号 ──
                         st.markdown("---")
-                        st.markdown("##### 📋 逐项信号分析（带原理解释）")
+                        st.markdown("##### 📐 技术面信号（带原理解释）")
 
-                        for i, sig in enumerate(analysis['signals']):
-                            direction = sig['direction']
-                            if direction == 'bullish':
-                                icon = '🔴'
-                                color = 'red'
-                            elif direction == 'bearish':
-                                icon = '🟢'
-                                color = 'green'
+                        def render_signal_cards(sig_list, start_expanded=3):
+                            _dir_color = {'bullish': '#FF3B30', 'bearish': '#34C759', 'neutral': '#FF9F0A'}
+                            _dir_bg = {'bullish': 'rgba(255,59,48,0.06)', 'bearish': 'rgba(52,199,89,0.06)', 'neutral': 'rgba(255,159,10,0.06)'}
+                            _dir_label = {'bullish': '多', 'bearish': '空', 'neutral': '中性'}
+                            _strength_bar = {'强': '████', '中强': '███░', '中': '██░░', '弱': '█░░░'}
+
+                            for idx, sig in enumerate(sig_list):
+                                d = sig['direction']
+                                c = _dir_color.get(d, '#8E8E93')
+                                bg = _dir_bg.get(d, 'rgba(142,142,147,0.05)')
+                                label = _dir_label.get(d, '中性')
+                                bar = _strength_bar.get(sig['strength'], '█░░░')
+                                preview = sig['signal'][:55] + ('…' if len(sig['signal']) > 55 else '')
+
+                                st.markdown(f"""
+<div style="background:{bg}; border-left:3px solid {c}; border-radius:0 10px 10px 0;
+            padding:12px 16px; margin:6px 0;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+    <span style="font-weight:600; color:#1d1d1f; font-size:0.9rem;">{sig['name']}</span>
+    <span style="font-size:0.75rem; color:{c}; font-weight:600; background:rgba(0,0,0,0.04);
+                 padding:2px 8px; border-radius:6px;">{label} · {sig['strength']} {bar}</span>
+  </div>
+  <div style="color:#3a3a3c; font-size:0.82rem;">{preview}</div>
+</div>
+""", unsafe_allow_html=True)
+                                with st.expander("查看原理解释与可靠性评估", expanded=(idx < start_expanded)):
+                                    st.markdown(f"**信号详情：** {sig['signal']}")
+                                    st.markdown(f"**原理（为什么有效）：** {sig['principle']}")
+                                    st.markdown(f"**可靠性：** {sig['reliability']}")
+
+                        render_signal_cards(analysis['signals'], start_expanded=2)
+
+                        # ── 基本面信号 ──
+                        st.markdown("---")
+                        st.markdown("##### 🏭 基本面信号（供需·估值·季节性）")
+
+                        try:
+                            rt_for_fund = load_realtime_by_name(smart_name)
+                            fund = generate_fundamental_analysis(
+                                hist,
+                                symbol_name=smart_name,
+                                rt_df=rt_for_fund
+                            )
+                            fund_signals = fund.get('signals', [])
+                            fund_bull = fund.get('bull_score', 0)
+                            fund_bear = fund.get('bear_score', 0)
+
+                            if fund_signals:
+                                # 基本面多空分数
+                                fb1, fb2 = st.columns(2)
+                                with fb1:
+                                    st.metric("基本面多头评分", f"{fund_bull:.1f}")
+                                    st.progress(min(fund_bull / 6, 1.0))
+                                with fb2:
+                                    st.metric("基本面空头评分", f"{fund_bear:.1f}")
+                                    st.progress(min(fund_bear / 6, 1.0))
+
+                                render_signal_cards(fund_signals, start_expanded=2)
+
+                                # 综合（技术面 + 基本面）
+                                combined_bull = bull + fund_bull
+                                combined_bear = bear + fund_bear
+                                combined_net = combined_bull - combined_bear
+                                st.markdown("---")
+                                st.markdown("##### 🔮 综合判定（技术面 + 基本面）")
+                                if combined_net >= 4:
+                                    st.success(f"**强烈看多** — 综合多头 {combined_bull:.1f} vs 空头 {combined_bear:.1f}")
+                                elif combined_net >= 1.5:
+                                    st.success(f"**偏多** — 综合多头 {combined_bull:.1f} vs 空头 {combined_bear:.1f}")
+                                elif combined_net <= -4:
+                                    st.error(f"**强烈看空** — 综合多头 {combined_bull:.1f} vs 空头 {combined_bear:.1f}")
+                                elif combined_net <= -1.5:
+                                    st.error(f"**偏空** — 综合多头 {combined_bull:.1f} vs 空头 {combined_bear:.1f}")
+                                else:
+                                    st.warning(f"**多空均衡** — 综合多头 {combined_bull:.1f} vs 空头 {combined_bear:.1f}")
                             else:
-                                icon = '⚪'
-                                color = 'orange'
+                                st.info("基本面数据获取中，请稍后重试或切换至交易时段查看")
+                        except Exception as fe:
+                            st.caption(f"基本面分析加载异常：{fe}")
 
-                            strength = sig['strength']
-                            strength_stars = {'强': '⭐⭐⭐', '中强': '⭐⭐½', '中': '⭐⭐', '弱': '⭐'}.get(strength, '⭐')
-
-                            with st.expander(f"{icon} {sig['name']}  |  强度: {strength_stars}  |  {sig['signal'][:60]}...", expanded=(i < 3)):
-                                st.markdown(f"**📊 信号内容：**")
-                                st.markdown(f"> {sig['signal']}")
-
-                                st.markdown(f"**🔬 原理解释（为什么这个信号有效）：**")
-                                st.markdown(f"> {sig['principle']}")
-
-                                st.markdown(f"**📏 可靠性评估：**")
-                                st.markdown(f"> {sig['reliability']}")
-
-                                st.markdown(f"**信号强度：** {strength_stars} ({strength})")
-
-                        # ── 关键价位提示 ──
+                        # ── 关键价位与技术指标 ──
                         st.markdown("---")
-                        st.markdown("##### 🎯 关键价位与指标")
+                        st.markdown("##### 🎯 关键价位与技术指标")
 
+                        last_row = hist.iloc[-1]
                         kp1, kp2, kp3, kp4 = st.columns(4)
                         kp1.metric("当前价格", f"¥{analysis['price']:,.0f}")
                         if analysis['ma5']:
-                            kp2.metric("MA5（短期支撑/阻力）", f"¥{analysis['ma5']:,.0f}")
+                            kp2.metric("MA5", f"¥{analysis['ma5']:,.0f}")
                         if analysis['ma20']:
-                            kp3.metric("MA20（中期趋势线）", f"¥{analysis['ma20']:,.0f}")
+                            kp3.metric("MA20", f"¥{analysis['ma20']:,.0f}")
                         if analysis['rsi']:
-                            kp4.metric("RSI（动量指标）", f"{analysis['rsi']:.1f}")
+                            kp4.metric("RSI(14)", f"{analysis['rsi']:.1f}")
 
-                        # 第二行指标
-                        last_row = hist.iloc[-1]
                         kp5, kp6, kp7, kp8 = st.columns(4)
                         kdj_k = last_row.get('KDJ_K', None)
                         kdj_j = last_row.get('KDJ_J', None)
