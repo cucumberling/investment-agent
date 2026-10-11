@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f1ea">
+<title>CODE — Read Along</title>
+<style>
+:root{--bg:#f4f1ea;--paper:#fffdf8;--ink:#1c1f22;--muted:#6d706f;--line:#ddd7cb;--accent:#263746;--hi:#fff0a8;--side:#ede9df;--sidebar:310px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.7}
+button,select,input{font:inherit}.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar);background:var(--side);border-right:1px solid var(--line);z-index:40;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.brand{padding:20px;border-bottom:1px solid var(--line)}.brand b{font:700 24px Georgia,serif}.brand small{display:block;color:var(--muted);margin-top:3px}
+.import{margin-top:12px;width:100%;min-height:40px;border:1px solid #c8c1b5;border-radius:10px;background:white;font-weight:650}.progressmini{height:5px;background:#d8d1c4;border-radius:20px;overflow:hidden;margin-top:12px}.progressmini i{display:block;height:100%;width:0;background:var(--accent)}
+.bookpct{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;margin-top:5px}.chapters{overflow:auto;padding:9px;flex:1}.ch{width:100%;display:grid;grid-template-columns:28px 1fr;gap:8px;text-align:left;border:0;background:transparent;border-radius:10px;padding:9px;cursor:pointer}.ch.active{background:white}.ch .n{font-size:12px;color:var(--muted);font-weight:700}.ch .t{font:14px/1.3 Georgia,serif}
+.shell{margin-left:var(--sidebar)}.top{position:sticky;top:0;z-index:25;background:rgba(244,241,234,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
+.topin{max-width:980px;margin:auto;padding:9px 12px}.row{display:flex;align-items:center;gap:8px}.menu{display:none}.title{flex:1;min-width:0}.title small{display:block;color:var(--muted);font-size:11px}.title b{display:block;font:700 16px Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.where{font-size:12px;font-weight:650}
+.bar{height:5px;background:#e0dbd0;border-radius:10px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.controls{display:grid;grid-template-columns:auto auto auto 90px minmax(180px,1fr);gap:7px}.controls button,.controls select{min-height:40px;border:1px solid #c8c1b5;border-radius:10px;background:white;padding:6px 9px;min-width:0}.controls .play{background:#18232d;color:white;border-color:#18232d;font-weight:700}.hint{font-size:11px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrap{max-width:880px;margin:auto;padding:24px 18px 110px}.reader{background:var(--paper);padding:44px 58px 80px;min-height:75vh;border:1px solid rgba(70,60,45,.07);box-shadow:0 10px 35px rgba(35,32,25,.08)}
+.reader h1,.reader h2{font-family:Georgia,serif;line-height:1.2}.reader h1{font-size:34px;margin:0 0 30px}.reader h2{font-size:24px;margin:30px 0 15px}.reader p,.reader li{font:19px/1.78 Georgia,serif}.reader p{margin:0 0 18px}.reader li{margin-bottom:8px}.reader pre{white-space:pre-wrap;background:#f2efe8;padding:14px;border-radius:8px;overflow:auto}.spoken{cursor:pointer;border-radius:5px}.spoken.current{background:var(--hi);box-shadow:0 0 0 5px var(--hi)}.figure{font:13px/1.5 Georgia,serif;color:var(--muted);border:1px dashed var(--line);padding:10px 12px;border-radius:8px;margin:18px 0}
+.empty{color:var(--muted);text-align:center;padding:70px 20px}.empty b{display:block;color:var(--ink);font:700 24px Georgia,serif;margin-bottom:8px}
+.backdrop{display:none}
+@media(max-width:820px){.sidebar{transform:translateX(-103%);transition:.2s;width:min(86vw,330px);box-shadow:12px 0 40px rgba(0,0,0,.16)}body.open .sidebar{transform:none}.backdrop{display:block;position:fixed;inset:0;background:#0006;z-index:35;opacity:0;pointer-events:none;transition:.2s}body.open .backdrop{opacity:1;pointer-events:auto}.shell{margin-left:0}.menu{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:40px;border:1px solid #c8c1b5;border-radius:10px;background:white}.controls{grid-template-columns:1fr 1.25fr 1fr 86px}.controls .voice{grid-column:1/-1}.wrap{padding:12px 0 90px}.reader{border-left:0;border-right:0;box-shadow:none;padding:32px 20px 70px}.reader p,.reader li{font-size:18px}.reader h1{font-size:30px}.where{font-size:11px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand"><b>CODE</b><small>Mobile Read Along</small>
+    <button class="import" id="importBtn">导入 EPUB</button><input id="file" type="file" accept=".epub,application/epub+zip" hidden>
+    <div class="progressmini"><i id="bookBar"></i></div><div class="bookpct"><span>全书进度</span><strong id="bookPct">0.0%</strong></div>
+  </div>
+  <nav class="chapters" id="chapters"></nav>
+</aside>
+<div class="backdrop" id="backdrop"></div>
+<main class="shell">
+  <div class="top"><div class="topin">
+    <div class="row"><button class="menu" id="menu">☰</button><div class="title"><small id="eyebrow">CODE</small><b id="title">请先导入 EPUB</b></div><div class="where" id="where">—</div></div>
+    <div class="bar"><i id="chapterBar"></i></div>
+    <div class="controls">
+      <button id="prev">◀</button><button class="play" id="play">▶ 播放</button><button id="next">▶</button>
+      <select id="speed"><option>.85×</option><option>1×</option><option>1.1×</option><option>1.2×</option><option>1.35×</option></select>
+      <select class="voice" id="voice"></select>
+    </div>
+    <div class="hint" id="hint">优先选择 Google UK English Female；若设备未提供，会自动回退到其他 en-GB 英文声音。</div>
+  </div></div>
+  <div class="wrap"><article class="reader" id="reader"><div class="empty"><b>第一次使用</b>点“导入 EPUB”，选择你保存到手机“文件”里的 CODE epub。导入后会保存在这个浏览器里，以后打开这个网址可以直接继续读。</div></article></div>
+</main>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const state={chapters:[],chapter:+localStorage.codeChapter||0,para:+localStorage.codePara||0,speaking:false,rate:+localStorage.codeRate||1,voiceName:localStorage.codeVoice||''};
+const DB='code-readalong-db', STORE='book';
+function db(){return new Promise((ok,no)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
+async function saveBook(book){const d=await db();return new Promise((ok,no)=>{const t=d.transaction(STORE,'readwrite');t.objectStore(STORE).put(book,'code');t.oncomplete=ok;t.onerror=()=>no(t.error)})}
+async function loadBook(){const d=await db();return new Promise((ok,no)=>{const r=d.transaction(STORE).objectStore(STORE).get('code');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
+function norm(p){const a=[];for(const x of p.split('/')){if(!x||x=='.')continue;if(x=='..')a.pop();else a.push(x)}return a.join('/')}
+function dir(p){return p.includes('/')?p.slice(0,p.lastIndexOf('/')+1):''}
+function xml(s){return new DOMParser().parseFromString(s,'application/xml')}
+function html(s){return new DOMParser().parseFromString(s,'text/html')}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function importEpub(file){
+  if(!window.JSZip){alert('网页组件还没加载好，请检查网络后重试。');return}
+  $('#importBtn').textContent='正在导入…';
+  try{
+    const z=await JSZip.loadAsync(file);
+    const container=xml(await z.file('META-INF/container.xml').async('text'));
+    const opfPath=container.querySelector('rootfile').getAttribute('full-path'), base=dir(opfPath);
+    const opf=xml(await z.file(opfPath).async('text'));
+    const manifest={}; [...opf.querySelectorAll('manifest item')].forEach(i=>manifest[i.getAttribute('id')]={href:i.getAttribute('href'),type:i.getAttribute('media-type')||''});
+    const out=[];
+    for(const ir of opf.querySelectorAll('spine itemref')){
+      const m=manifest[ir.getAttribute('idref')]; if(!m||!/(xhtml|html)/i.test(m.type))continue;
+      const path=norm(base+m.href), f=z.file(path); if(!f)continue;
+      const raw=await f.async('text'), d=html(raw);
+      d.querySelectorAll('script,style,link,svg').forEach(x=>x.remove());
+      d.querySelectorAll('img').forEach(im=>{const p=d.createElement('div');p.className='figure';p.textContent=im.getAttribute('alt')||'[Figure — see original EPUB for image]';im.replaceWith(p)});
+      const h=(d.querySelector('h1,h2')?.textContent||'').trim();
+      const txt=(d.body?.textContent||'').replace(/\s+/g,' ').trim();
+      if(!/^Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty|Twenty-One|Twenty-Two|Twenty-Three|Twenty-Four|Twenty-Five|Twenty-Six|Twenty-Seven|Twenty-Eight)\b/i.test(h+' '+txt.slice(0,120))) continue;
+      const title=h||txt.match(/Chapter\s+[A-Za-z-]+[^.]{0,80}/i)?.[0]||`Chapter ${out.length+1}`;
+      out.push({title,body:d.body.innerHTML});
+    }
+    if(out.length<20)throw new Error(`只识别到 ${out.length} 章，请确认选择的是 CODE 2nd Edition EPUB。`);
+    state.chapters=out.slice(0,28); state.chapter=Math.min(state.chapter,state.chapters.length-1); state.para=0;
+    await saveBook({chapters:state.chapters,importedAt:Date.now(),name:file.name});
+    renderList(); renderChapter(); $('#importBtn').textContent='重新导入 EPUB'; closeDrawer();
+  }catch(e){alert('导入失败：'+(e.message||e)); $('#importBtn').textContent='导入 EPUB'}
+}
+function renderList(){
+  $('#chapters').innerHTML=state.chapters.map((c,i)=>`<button class="ch ${i==state.chapter?'active':''}" data-i="${i}"><span class="n">${String(i+1).padStart(2,'0')}</span><span class="t">${esc(c.title)}</span></button>`).join('');
+  $$('.ch').forEach(b=>b.onclick=()=>{stop();state.chapter=+b.dataset.i;state.para=0;savePos();renderList();renderChapter();closeDrawer()});
+}
+function cleanTitle(t){return t.replace(/\s+/g,' ').trim()}
+function renderChapter(){
+  const c=state.chapters[state.chapter]; if(!c)return;
+  $('#title').textContent=cleanTitle(c.title); $('#eyebrow').textContent=`Chapter ${state.chapter+1} / ${state.chapters.length}`;
+  const d=html(`<main>${c.body}</main>`);
+  d.querySelectorAll('script,style,nav,footer').forEach(x=>x.remove());
+  $('#reader').innerHTML=d.querySelector('main').innerHTML;
+  const els=[...$('#reader').querySelectorAll('p,li,h3,h4,pre')].filter(x=>x.textContent.trim().length>1);
+  els.forEach((e,i)=>{e.classList.add('spoken');e.dataset.p=i;e.onclick=()=>{stop();state.para=i;savePos();highlight();speak()}});
+  if(state.para>=els.length)state.para=0; highlight();updateProgress();renderList();
+}
+function paras(){return [...$('#reader').querySelectorAll('.spoken')]}
+function highlight(){
+  const ps=paras();ps.forEach(x=>x.classList.remove('current'));const p=ps[state.para];if(p){p.classList.add('current');p.scrollIntoView({block:'center',behavior:'smooth'})}updateProgress()
+}
+function updateProgress(){
+  const ps=paras(), cp=ps.length?state.para/ps.length:0;
+  $('#chapterBar').style.width=(cp*100)+'%'; $('#where').textContent=ps.length?`${state.para+1} / ${ps.length}`:'—';
+  const total=state.chapters.length||1, bp=((state.chapter+cp)/total)*100;
+  $('#bookBar').style.width=bp+'%';$('#bookPct').textContent=bp.toFixed(1)+'%';
+}
+function savePos(){localStorage.codeChapter=state.chapter;localStorage.codePara=state.para}
+function getVoice(){
+  const vs=speechSynthesis.getVoices(), chosen=vs.find(v=>v.name===state.voiceName);
+  return chosen||vs.find(v=>/Google UK English Female/i.test(v.name))||vs.find(v=>v.lang.toLowerCase()==='en-gb'&&/female|serena|kate|samantha|ava/i.test(v.name))||vs.find(v=>v.lang.toLowerCase()==='en-gb')||vs.find(v=>v.lang.toLowerCase().startsWith('en'))||vs[0]
+}
+function loadVoices(){
+  const vs=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith('en'));
+  vs.sort((a,b)=>score(b)-score(a)||a.name.localeCompare(b.name));
+  $('#voice').innerHTML=vs.map(v=>`<option value="${esc(v.name)}">${esc(v.name)} · ${v.lang}</option>`).join('');
+  const v=getVoice();if(v){state.voiceName=v.name;$('#voice').value=v.name;localStorage.codeVoice=v.name;$('#hint').textContent=`当前：${v.name} · ${v.lang}`}
+}
+function score(v){let s=0;if(/Google UK English Female/i.test(v.name))s+=100;if(v.lang.toLowerCase()==='en-gb')s+=30;if(/Google/i.test(v.name))s+=10;if(/female|serena|kate|samantha|ava/i.test(v.name))s+=5;return s}
+function speak(){
+  const p=paras()[state.para];if(!p)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(p.textContent.trim()),v=getVoice();if(v)u.voice=v;u.lang=v?.lang||'en-GB';u.rate=state.rate;
+  u.onstart=()=>{state.speaking=true;$('#play').textContent='⏸ 暂停';highlight()};
+  u.onend=()=>{if(!state.speaking)return;const ps=paras();if(state.para<ps.length-1){state.para++;savePos();speak()}else if(state.chapter<state.chapters.length-1){state.chapter++;state.para=0;savePos();renderChapter();speak()}else stop()};
+  u.onerror=()=>{state.speaking=false;$('#play').textContent='▶ 播放'};
+  speechSynthesis.speak(u)
+}
+function stop(){state.speaking=false;speechSynthesis.cancel();$('#play').textContent='▶ 播放'}
+function toggle(){if(!state.chapters.length)return;if(state.speaking){stop()}else{speak()}}
+function step(n){stop();const ps=paras();state.para=Math.max(0,Math.min(ps.length-1,state.para+n));savePos();highlight()}
+function openDrawer(){document.body.classList.add('open')}function closeDrawer(){document.body.classList.remove('open')}
+$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=e=>e.target.files[0]&&importEpub(e.target.files[0]);
+$('#play').onclick=toggle;$('#prev').onclick=()=>step(-1);$('#next').onclick=()=>step(1);
+$('#speed').value=state.rate===1?'1×':state.rate+'×';$('#speed').onchange=e=>{state.rate=parseFloat(e.target.value);localStorage.codeRate=state.rate;if(state.speaking)speak()};
+$('#voice').onchange=e=>{state.voiceName=e.target.value;localStorage.codeVoice=state.voiceName;const v=getVoice();$('#hint').textContent=v?`当前：${v.name} · ${v.lang}`:'';if(state.speaking)speak()};
+$('#menu').onclick=openDrawer;$('#backdrop').onclick=closeDrawer;
+speechSynthesis.onvoiceschanged=loadVoices;loadVoices();
+(async()=>{const b=await loadBook().catch(()=>null);if(b?.chapters?.length){state.chapters=b.chapters;state.chapter=Math.min(state.chapter,state.chapters.length-1);renderList();renderChapter();$('#importBtn').textContent='重新导入 EPUB'}})();
+</script>
+</body></html>
